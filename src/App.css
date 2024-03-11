@@ -1,0 +1,20 @@
+.books-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-gap: 20px;
+    padding: 0 20px;
+}
+
+/* Media query para pantallas más pequeñas */
+@media (max-width: 768px) {
+    .books-container {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Media query para pantallas más pequeñas aún */
+@media (max-width: 480px) {
+    .books-container {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+}
