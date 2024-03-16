@@ -7,9 +7,19 @@ export const getBooksRequest = async () =>
     await axios.get(`${endpoint}/books`)
 
 // POST - Create a book
-export const createBookRequest = async (book) =>
-    await axios.post(`${endpoint}/book`, book)
-
+export const createBookRequest = async (formData) => {
+    try {
+        const response = await axios.post(`${endpoint}/book`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data; // Devuelve los datos de la respuesta si es necesario
+    } catch (error) {
+        console.log(error)
+        throw error; // Propaga el error para ser manejado por el llamador
+    }
+}
 
 // DELETE - Delete a book
 export const deleteBookRequest = async (id) =>
@@ -22,5 +32,12 @@ export const getBookRequest = async (id) =>
 
 
 // PUT - Edit a book
-export const editBookRequest = async (id, book) =>
-    await axios.put(`${endpoint}/book/${id}`, book)
+export const editBookRequest = async (id, book) => {
+    try {
+        const response = await axios.put(`${endpoint}/book/${id}`, book)
+        console.log(response);
+        return response.data
+    } catch (error) {
+        console.log(error);
+    }
+}

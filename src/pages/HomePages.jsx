@@ -11,7 +11,14 @@ function HomePage() {
 
     function renderMain() {
         if (books.length === 0) return <h2>Not books Yet</h2>
-        return books.map(book => <BookCard key={book.LibroID} id={book.LibroID} titulo={book.Titulo} genero={book.Genero} />)
+        return books.map((book) => (
+            <BookCard
+                key={book.LibroID}
+                titulo={book.Titulo}
+                genero={book.Genero}
+                imagenPortada={book.ImagenPortada}
+            />
+        ));
     }
 
     return (

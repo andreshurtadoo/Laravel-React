@@ -2,17 +2,19 @@ import DataTable from 'react-data-table-component';
 import { useState, useEffect } from 'react';
 import { useBooks } from '../context/BookContext';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { toast } from 'sonner'
 
 function DatatablePage() {
-    const { books, loadBooks, deleteBook } = useBooks();
     const navigate = useNavigate();
+    const [searchText, setSearchText] = useState('');
+    const { books, loadBooks, deleteBook } = useBooks();
 
     useEffect(() => {
         loadBooks();
     }, [])
 
-
-    const [searchText, setSearchText] = useState('');
 
     const handleSearch = (e) => {
         const value = e.target.value || '';
@@ -25,9 +27,10 @@ function DatatablePage() {
         )
     );
 
-    const handleDelete = (row) => {
+    const handleDelete = async (row) => {
         if (confirm(`Esta seguro que quieres eliminar el libro ${row.Titulo}`)) {
-            deleteBook(row.LibroID)
+            await deleteBook(row.LibroID)
+            toast.success('Libro eliminado exitosamente!')
         }
     }
 
@@ -35,7 +38,6 @@ function DatatablePage() {
         {
             name: 'Titulo',
             selector: row => row.Titulo,
-            sortable: true,
         },
         {
             name: 'Genero',
@@ -44,7 +46,6 @@ function DatatablePage() {
         {
             name: 'Editorial',
             selector: row => row.Editorial,
-            sortable: true
         },
         {
             name: 'Fecha Publicacion',
@@ -59,8 +60,12 @@ function DatatablePage() {
             name: 'Acciones',
             cell: row => (
                 <div>
-                    <button className='px-1 ' onClick={() => navigate(`/new/${row.LibroID}`)}>✏️</button>
-                    <button className='px-1' onClick={() => handleDelete(row)}>❌</button>
+                    <button className='px-1 ' onClick={() => navigate(`/new/${row.LibroID}`)}>
+                        <FontAwesomeIcon icon={faPenToSquare} />
+                    </button>
+                    <button className='px-1' onClick={() => handleDelete(row)}>
+                        <FontAwesomeIcon icon={faTrash} />
+                    </button>
                 </div>
             ),
             ignoreRowClick: true,

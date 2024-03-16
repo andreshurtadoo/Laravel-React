@@ -5,11 +5,13 @@ import HomePage from './pages/HomePages';
 import FormPages from './pages/FormPages';
 import DatatablePage from './pages/DatatablePage';
 import { BookContextProvider } from './context/BookContext';
+import { Toaster } from 'sonner'
 
 function App() {
 
   return (
     <>
+      <Toaster />
       <Navbar />
       <BookContextProvider>
         <Routes>

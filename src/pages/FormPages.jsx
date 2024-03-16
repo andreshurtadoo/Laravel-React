@@ -1,28 +1,65 @@
 import { useState, useEffect } from "react";
 import { useBooks } from "../context/BookContext";
-import { Form, Formik } from "formik"
+import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useParams, useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus } from '@fortawesome/free-solid-svg-icons'
+import { toast } from 'sonner'
+import * as Yup from 'yup';
 
 function FormPages() {
     const params = useParams();
     const navigate = useNavigate();
-    const { createBook, getBook, editBook } = useBooks();
 
+    const { createBook, getBook, editBook } = useBooks();
+    const [numAuthors, setNumAuthors] = useState(1);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageFile, setImageFile] = useState(null); // Nuevo estado para almacenar el archivo de imagen
+
+    // Valores del formulario
     const initialValues = {
         titulo: '',
         genero: 'Ficcion',
         fecha_publicacion: '',
         editorial: '',
         imagen_portada: '',
-        autores: [{
-            nombre: '',
-            apellido: '',
-            fecha_nacimiento: '',
-            fecha_fallecimiento: ''
-        }]
+        autores: []
+
     }
 
-    const [book, setBook] = useState(initialValues)
+    const validationSchema = Yup.object().shape({
+        titulo: Yup.string().required('El título es obligatorio'),
+        genero: Yup.string().required('El género es obligatorio'),
+        fecha_publicacion: Yup.date().required('La fecha de publicación es obligatoria'),
+        editorial: Yup.string().required('La editorial es obligatoria'),
+        imagen_portada: Yup.mixed().required('La imagen de portada es obligatoria'),
+        autores: Yup.array().of(Yup.object().shape({
+            NombreAutor: Yup.string().required('El nombre del autor es obligatorio'),
+            ApellidoAutor: Yup.string().required('El apellido del autor es obligatorio'),
+            FechaNacimientoAutor: Yup.date().required('La fecha de nacimiento del autor es obligatoria'),
+            FechaFallecimientoAutor: Yup.date()
+        }))
+    });
+
+    const [book, setBook] = useState(initialValues);
+
+    // Controlador de autores ->  aumenta la cantidad de autores
+    const handleAddAuthor = () => {
+        setNumAuthors(prevNumAuthors => prevNumAuthors + 1);
+    };
+
+    // Controlador de imagen -> muestra la imagen en el formulario
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     useEffect(() => {
         const loadBooks = async () => {
@@ -33,14 +70,12 @@ function FormPages() {
                     genero: bookData.Genero,
                     fecha_publicacion: bookData.FechaPublicacion,
                     editorial: bookData.Editorial,
-                    imagen_portada: '',
-                    autores: [{
-                        nombre: book.autores[0].NombreAutor,
-                        apellido: book.autores[0].ApellidoAutor,
-                        fecha_nacimiento: book.autores[0].FechaNacimientoAutor,
-                        fecha_fallecimiento: ''
-                    }]
+                    imagen_portada: bookData.Imagen_portada,
+                    autores: bookData.autores
                 });
+                setImagePreview(`http://localhost:8000/storage/${bookData.ImagenPortada}`);
+                // Actualizamos numAuthors al número de autores recibidos
+                setNumAuthors(bookData.autores.length || 1);
             }
         }
         loadBooks();
@@ -50,24 +85,46 @@ function FormPages() {
         <>
             <Formik
                 initialValues={book}
+                validationSchema={validationSchema}
                 enableReinitialize={true}
 
                 onSubmit={async (values, { resetForm }) => {
-                    if (params.id) {
-                        await editBook(params.id, values)
-                    } else {
-                        await createBook(values)
+                    try {
+                        const formData = new FormData();
+                        formData.append('titulo', values.titulo);
+                        formData.append('genero', values.genero);
+                        formData.append('fecha_publicacion', values.fecha_publicacion);
+                        formData.append('editorial', values.editorial);
+                        formData.append('imagen_portada', imageFile); // Aquí agregamos el archivo de imagen al FormData
+                        // Agregar información de los autores al FormData
+                        values.autores.forEach((autor, index) => {
+                            formData.append(`autores[${index}][nombre]`, autor.NombreAutor);
+                            formData.append(`autores[${index}][apellido]`, autor.ApellidoAutor);
+                            formData.append(`autores[${index}][fecha_nacimiento]`, autor.FechaNacimientoAutor);
+                            if (autor.FechaFallecimientoAutor) {
+                                formData.append(`autores[${index}][fecha_fallecimiento]`, autor.FechaFallecimientoAutor);
+                            }
+                        });
+
+                        if (params.id) {
+                            await editBook(params.id, formData)
+                            toast.success('Libro editado exitosamente!')
+                        } else {
+                            await createBook(formData)
+                            toast.success('Libro creado exitosamente!')
+                        }
+                        navigate('/')
+                        setBook(initialValues)
+                        resetForm()
+                    } catch (error) {
+                        toast.error('Error al enviar el formulario. Por favor, inténtalo de nuevo más tarde.');
+                        console.error('Error al enviar el formulario:', error);
                     }
-                    navigate('/')
-                    setBook(initialValues)
-                    resetForm()
                 }}
             >
                 {({ handleChange, handleSubmit, isSubmitting, values }) => (
                     <Form onSubmit={handleSubmit} className='max-w-lg rounded-md mx-auto mt-5 mb-4'>
-                        <h2 className="text-2xl font-bold text-center py-3">
-                            Formulario de Creación de Libros
-                        </h2>
+                        <h2 className="text-2xl font-bold text-center py-3">Formulario de Creación de Libros</h2>
 
                         {/* Titulo */}
                         <div className="py-2">
@@ -81,48 +138,65 @@ function FormPages() {
                                 value={values.titulo}
                                 className='px-2 py-1 rounded-md w-full border'
                             />
+                            <ErrorMessage name="titulo" component="div" className="text-red-500 text-sm" />
                         </div>
 
                         {/* Datos de los Autores */}
                         <div className="py-2">
                             <h2 className="text-lg font-bold text-center pb-2">Datos del Autor</h2>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <input
-                                    type="text"
-                                    name='autores[0].nombre'
-                                    id="nombreAutor"
-                                    placeholder='Nombre'
-                                    onChange={handleChange}
-                                    value={values.autores[0].nombre}
-                                    className='px-2 py-1 rounded-md w-full border'
-                                />
-                                <input
-                                    type="text"
-                                    name='autores[0].apellido'
-                                    id="apellidoAutor"
-                                    placeholder='Apellido'
-                                    onChange={handleChange}
-                                    value={values.autores[0].apellido}
-                                    className='px-2 py-1 rounded-md w-full border'
-                                />
-                                <input
-                                    type="date"
-                                    name="autores[0].fecha_nacimiento"
-                                    id="fechaNacimientoAutor"
-                                    onChange={handleChange}
-                                    value={values.autores[0].fecha_nacimiento}
-                                    className="px-2 py-1 rounded-md w-full border"
-                                />
-                                <input
-                                    type="date"
-                                    name="autores[0].fecha_fallecimiento"
-                                    id="fechaFallecimientoAutor"
-                                    placeholder="Fecha de fallecimiento (Opcional)"
-                                    onChange={handleChange}
-                                    value={values.autores[0].fecha_fallecimiento}
-                                    className="px-2 py-1 rounded-md w-full border"
-                                />
-                            </div>
+                            {[...Array(numAuthors)].map((_, index) => (
+                                <div key={index} className="flex flex-col sm:flex-row gap-2 py-1">
+                                    {/* Inputs de los datos del autor */}
+                                    <input
+                                        type="text"
+                                        name={`autores[${index}].NombreAutor`}
+                                        placeholder="Nombre"
+                                        onChange={handleChange}
+                                        value={values.autores[index]?.NombreAutor || ''}
+                                        className="px-2 py-1 rounded-md w-full border"
+                                    />
+                                    <ErrorMessage name={`autores[${index}].NombreAutor`} component="div" className="text-red-500 text-sm" />
+
+                                    <input
+                                        type="text"
+                                        name={`autores[${index}].ApellidoAutor`}
+                                        placeholder="Apellido"
+                                        onChange={handleChange}
+                                        value={values.autores[index]?.ApellidoAutor || ''}
+                                        className="px-2 py-1 rounded-md w-full border"
+                                    />
+                                    <ErrorMessage name={`autores[${index}].ApellidoAutor`} component="div" className="text-red-500 text-sm" />
+
+                                    <input
+                                        type="date"
+                                        name={`autores[${index}].FechaNacimientoAutor`}
+                                        onChange={handleChange}
+                                        value={values.autores[index]?.FechaNacimientoAutor || ''}
+                                        className="px-2 py-1 rounded-md w-full border"
+                                    />
+                                    <ErrorMessage name={`autores[${index}].FechaNacimientoAutor`} component="div" className="text-red-500 text-sm" />
+
+                                    <input
+                                        type="date"
+                                        name={`autores[${index}].FechaFallecimientoAutor`}
+                                        placeholder="Fecha de fallecimiento (Opcional)"
+                                        onChange={handleChange}
+                                        value={values.autores[index]?.FechaFallecimientoAutor || ''}
+                                        className="px-2 py-1 rounded-md w-full border"
+                                    />
+
+                                    {/* Botón para agregar otro autor */}
+                                    {index === numAuthors - 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddAuthor}
+                                            className="px-2 rounded-md bg-indigo-500 text-white hover:bg-indigo-600"
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
                         </div>
 
                         {/* Genero */}
@@ -143,6 +217,7 @@ function FormPages() {
                                 <option value="Drama">Drama</option>
                                 <option value="Humor">Humor</option>
                             </select>
+                            <ErrorMessage name="genero" component="div" className="text-red-500 text-sm" />
                         </div>
 
                         {/* Fecha de publicacion */}
@@ -156,6 +231,7 @@ function FormPages() {
                                 value={values.fecha_publicacion}
                                 className="px-2 py-1 rounded-md w-full border"
                             />
+                            <ErrorMessage name="fecha_publicacion" component="div" className="text-red-500 text-sm" />
                         </div>
 
                         {/* Editorial */}
@@ -170,6 +246,18 @@ function FormPages() {
                                 value={values.editorial}
                                 className="px-2 py-1 rounded-md w-full border"
                             />
+                            <ErrorMessage name="editorial" component="div" className="text-red-500 text-sm" />
+                        </div>
+
+                        {/* Preview Img */}
+                        <div className="py-3">
+                            {imagePreview && (
+                                <img
+                                    src={imagePreview}
+                                    alt="Preview"
+                                    className="rounded-lg border border-gray-400 max-w-md mx-auto"
+                                />
+                            )}
                         </div>
 
                         {/* Cover */}
@@ -187,11 +275,13 @@ function FormPages() {
                                             <span>Upload a file</span>
                                             <input
                                                 id="file-upload"
-                                                name="cover"
+                                                name="imagen_portada"
                                                 type="file"
                                                 className="sr-only"
-                                                onChange={handleChange}
-                                                value={values.imagen_portada}
+                                                onChange={(e) => {
+                                                    handleImageChange(e);
+                                                    handleChange(e);
+                                                }}
                                             />
                                         </label>
                                         <p className="pl-1">or drag and drop</p>
@@ -201,7 +291,8 @@ function FormPages() {
                             </div>
                         </div>
 
-                        <button type="submit" disabled={isSubmitting} className='block bg-indigo-500 px-2 py-1 text-white w-full rounded-md'>
+
+                        <button type="submit" disabled={isSubmitting} className='block bg-indigo-500 px-2 py-1 text-white w-full rounded-md hover:bg-indigo-600'>
                             {isSubmitting ? 'Saving...' : 'Save'}
                         </button>
                     </Form>
