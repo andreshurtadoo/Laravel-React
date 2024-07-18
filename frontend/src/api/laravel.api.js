@@ -34,8 +34,9 @@ export const getBookRequest = async (id) =>
 // PUT - Edit a book
 export const editBookRequest = async (id, book) => {
     try {
+        console.log(id, book);
         const response = await axios.put(`${endpoint}/book/${id}`, book)
-        console.log(response);
+        console.log(response.data);
         return response.data
     } catch (error) {
         console.log(error);

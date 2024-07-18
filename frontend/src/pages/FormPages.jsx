@@ -27,7 +27,10 @@ function FormPages() {
 
     }
 
-    const validationSchema = Yup.object().shape({
+    const [book, setBook] = useState(initialValues);
+
+    // Validaciones
+    const creationValidationSchema = Yup.object().shape({
         titulo: Yup.string().required('El título es obligatorio'),
         genero: Yup.string().required('El género es obligatorio'),
         fecha_publicacion: Yup.date().required('La fecha de publicación es obligatoria'),
@@ -41,7 +44,20 @@ function FormPages() {
         }))
     });
 
-    const [book, setBook] = useState(initialValues);
+    // Esquema de validación para la edición de libros
+    const editingValidationSchema = Yup.object().shape({
+        titulo: Yup.string(),
+        genero: Yup.string(),
+        fecha_publicacion: Yup.date(),
+        editorial: Yup.string(),
+        imagen_portada: Yup.mixed(),
+        autores: Yup.array().of(Yup.object().shape({
+            NombreAutor: Yup.string().required('El nombre del autor es obligatorio'),
+            ApellidoAutor: Yup.string().required('El apellido del autor es obligatorio'),
+            FechaNacimientoAutor: Yup.date().required('La fecha de nacimiento del autor es obligatoria'),
+            FechaFallecimientoAutor: Yup.date()
+        }))
+    });
 
     // Controlador de autores ->  aumenta la cantidad de autores
     const handleAddAuthor = () => {
@@ -65,6 +81,7 @@ function FormPages() {
         const loadBooks = async () => {
             if (params.id) {
                 const [bookData] = await getBook(params.id);
+                // Insertamos los datos del libro
                 setBook({
                     titulo: bookData.TituloLibro,
                     genero: bookData.Genero,
@@ -73,6 +90,7 @@ function FormPages() {
                     imagen_portada: bookData.Imagen_portada,
                     autores: bookData.autores
                 });
+                // Insertamos la imagen del libro
                 setImagePreview(`http://localhost:8000/storage/${bookData.ImagenPortada}`);
                 // Actualizamos numAuthors al número de autores recibidos
                 setNumAuthors(bookData.autores.length || 1);
@@ -81,16 +99,21 @@ function FormPages() {
         loadBooks();
     }, [params.id, getBook]);
 
+    const currentValidationSchema = params.id ? editingValidationSchema : creationValidationSchema;
+
     return (
         <>
             <Formik
                 initialValues={book}
-                validationSchema={validationSchema}
+                validationSchema={currentValidationSchema}
                 enableReinitialize={true}
+                validateOnChange={false} // Desactivar validación al cambiar los valores de los campos
+                validateOnBlur={false} // Desactivar validación al desenfocar los campos
 
                 onSubmit={async (values, { resetForm }) => {
                     try {
                         const formData = new FormData();
+                        formData.append('LibroID', params.id);
                         formData.append('titulo', values.titulo);
                         formData.append('genero', values.genero);
                         formData.append('fecha_publicacion', values.fecha_publicacion);
@@ -107,6 +130,12 @@ function FormPages() {
                         });
 
                         if (params.id) {
+                            console.log('Titulo:', values.titulo);
+                            console.log('Genero:', values.genero);
+                            console.log('Fecha de Publicacion:', values.fecha_publicacion);
+                            console.log('Editorial:', values.editorial);
+                            console.log('Imagen de Portada:', imageFile);
+
                             await editBook(params.id, formData)
                             toast.success('Libro editado exitosamente!')
                         } else {
@@ -144,9 +173,11 @@ function FormPages() {
                         {/* Datos de los Autores */}
                         <div className="py-2">
                             <h2 className="text-lg font-bold text-center pb-2">Datos del Autor</h2>
+
                             {[...Array(numAuthors)].map((_, index) => (
                                 <div key={index} className="flex flex-col sm:flex-row gap-2 py-1">
                                     {/* Inputs de los datos del autor */}
+
                                     <input
                                         type="text"
                                         name={`autores[${index}].NombreAutor`}
@@ -291,8 +322,11 @@ function FormPages() {
                             </div>
                         </div>
 
-
-                        <button type="submit" disabled={isSubmitting} className='block bg-indigo-500 px-2 py-1 text-white w-full rounded-md hover:bg-indigo-600'>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className='block bg-indigo-500 px-2 py-1 text-white w-full rounded-md hover:bg-indigo-600'
+                        >
                             {isSubmitting ? 'Saving...' : 'Save'}
                         </button>
                     </Form>
